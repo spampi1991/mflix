@@ -1,9 +1,14 @@
 package mflix.api.daos;
 
 import com.mongodb.MongoClientSettings;
+import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Accumulators;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.BsonField;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Sorts;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
@@ -163,6 +168,30 @@ public class CommentDao extends AbstractMFlixDao {
 		// // guarantee for the returned documents. Once a commenter is in the
 		// // top 20 of users, they become a Critic, so mostActive is composed of
 		// // Critic objects.
+		
+		List<Bson> pipeline = new ArrayList<>();
+		
+		String groupIdEmail = "$email";
+	    BsonField sum1 = Accumulators.sum("count", 1);
+		Bson groupStage = Aggregates.group(groupIdEmail, sum1);
+		Bson sortOrder = Sorts.descending("count");
+		Bson sortStage = Aggregates.sort(sortOrder);
+		Bson limitStage = Aggregates.limit(20);
+		
+		pipeline.add(groupStage);
+		pipeline.add(sortStage);
+		pipeline.add(limitStage);
+
+		AggregateIterable<Document> iterable = commentCollection.aggregate(pipeline, Document.class);
+
+		for (Document doc : iterable) {
+			System.out.println(doc);
+			Critic c = new Critic();
+			c.setId(doc.getString("_id"));
+			c.setNumComments(doc.getInteger("count"));
+			mostActive.add(c);
+		}
+		
 		return mostActive;
 	}
 }
